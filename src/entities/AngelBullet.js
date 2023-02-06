@@ -8,19 +8,16 @@ export default class AngelBullet extends Phaser.Physics.Arcade.Sprite {
     this.scene.physics.world.enable(this);
     this.body.allowGravity = false;
     this.scene.add.existing(this);
-    this.speed = Phaser.Math.GetSpeed(800, 0.9);
-    this.lifespan = 1000;
+    this.speed = Phaser.Math.GetSpeed(800, 3.5);
 
     this.reset(x, y);
   }
 
   update(time, delta) {
-    this.lifespan -= delta;
-
     this.x -= this.speed * delta;
     this.rotation += 0.1;
 
-    if (this.lifespan <= 0) {
+    if (this.x <= -20) {
       this.setActive(false);
       this.setVisible(false);
     }

@@ -8,6 +8,7 @@ import Shield from '../entities/Shield';
 import Powerup from '../entities/Powerup';
 import AngelBullet from '../entities/AngelBullet';
 import Explosion from '../entities/Explosion';
+import { waves } from '../lib';
 
 export default class FirstLevelFg extends Phaser.Scene {
   constructor() {
@@ -20,15 +21,18 @@ export default class FirstLevelFg extends Phaser.Scene {
     this.enemiesHit = 0;
     this.weaponType = 'laser';
     this.soundIndex = 0;
-    this.asteroidDelay = 3750;
-    this.spawnNumber = 2;
-    this.fireRate = 1500;
+    this.asteroidDelay = 5000;
+    this.wave = 0;
+    this.waveLimit = 4;
+    this.asteroidLimit = waves[this.wave]['asteroids'];
+    this.angelLimit = waves[this.wave]['angels'];
 
     this.isDead = false;
     this.nextLevel = false;
 
     this.shootWeapon = this.shootWeapon.bind(this);
-    this.destroyAsteroid = this.destroyAsteroid.bind(this);
+    this.handleHitAsteroid = this.handleHitAsteroid.bind(this);
+    this.handleHitAngel = this.handleHitAngel.bind(this);
     this.destroyAngel = this.destroyAngel.bind(this);
     this.checkLevelOver = this.checkLevelOver.bind(this);
     this.angelFire = this.angelFire.bind(this);
@@ -180,7 +184,7 @@ export default class FirstLevelFg extends Phaser.Scene {
     this.physics.add.collider(
       this.projectiles,
       this.asteroids,
-      this.destroyAsteroid,
+      this.handleHitAsteroid,
       null,
       this
     );
@@ -188,7 +192,7 @@ export default class FirstLevelFg extends Phaser.Scene {
     this.physics.add.collider(
       this.projectiles,
       this.angels,
-      this.destroyAngel,
+      this.handleHitAngel,
       null,
       this
     );
@@ -205,14 +209,7 @@ export default class FirstLevelFg extends Phaser.Scene {
 
     this.time.addEvent({
       delay: this.asteroidDelay,
-      callback: this.launchAsteroids,
-      callbackScope: this,
-      loop: true,
-    });
-
-    this.time.addEvent({
-      delay: this.fireRate,
-      callback: this.angelFire,
+      callback: this.enemySpawn,
       callbackScope: this,
       loop: true,
     });
@@ -223,6 +220,11 @@ export default class FirstLevelFg extends Phaser.Scene {
     this.checkLevelOver();
     this.skull.update(time, this.cursors, this.shootWeapon);
     this.shield.update(this.skull);
+    this.angels.getChildren().forEach((angel) => {
+      if (angel.active) {
+        angel.update(time, delta, this.angelFire, angel.x, angel.y);
+      }
+    });
     this.background.tilePositionX += 1.5;
   }
 
@@ -238,7 +240,7 @@ export default class FirstLevelFg extends Phaser.Scene {
         for (let i = 0; i < 3; i++) {
           let bullet = this.projectiles.getFirstDead();
           if (!bullet) {
-            bullet = new Bullet(this, bulletX, bulletY, this.weaponType);
+            bullet = new Bullet(this, bulletX, bulletY, this.weaponType, 2);
             this.projectiles.add(bullet);
           }
           bullet.reset(bulletX, bulletY);
@@ -263,54 +265,59 @@ export default class FirstLevelFg extends Phaser.Scene {
     }
   }
 
-  angelFire() {
-    this.angels.getChildren().forEach((angel) => {
-      let star = this.angelProjectiles.getFirstDead();
+  angelFire(x, y) {
+    let star = this.angelProjectiles.getFirstDead();
 
-      if (!star) {
-        star = new AngelBullet(this, angel.x, angel.y, 'star');
-        this.angelProjectiles.add(star);
-      }
-
-      star.update(angel.x, angel.y);
-    });
+    if (!star) {
+      star = new AngelBullet(this, x, y, 'star');
+      this.angelProjectiles.add(star);
+    }
+    star.reset(x, y);
   }
 
-  launchAsteroids() {
-    if (!this.nextLevel) {
-      for (let i = 0; i < this.spawnNumber; i++) {
-        const randomScale = Phaser.Math.Between(1.5, 2);
-        const randomStep = Phaser.Math.Between(-250, 250);
-        const randomSpeed = Phaser.Math.Between(200, 500);
-        const initY = 300;
+  enemySpawn() {
+    if (!this.nextLevel && this.wave < this.waveLimit) {
+      this.asteroidLimit = waves[this.wave]['asteroids'];
+      this.angelLimit = waves[this.wave]['angels'];
+      this.asteroidSpawn();
+      this.angelSpawn();
+      this.wave += 1;
+    }
+  }
 
-        let asteroid = this.asteroids.getFirstDead();
+  asteroidSpawn() {
+    for (let i = 0; i < this.asteroidLimit; i++) {
+      const randomScale = Phaser.Math.Between(1.5, 2);
+      const randomStep = Phaser.Math.Between(-250, 250);
+      const randomSpeed = Phaser.Math.Between(200, 500);
+      const initY = 300;
 
-        if (!asteroid) {
-          asteroid = new Asteroid(this, 800, initY + randomStep, 'asteroid1');
-          this.asteroids.add(asteroid);
-        }
-        asteroid.setVelocityX(-randomSpeed);
-        asteroid.reset(800, initY + randomStep);
-        asteroid.setScale(randomScale);
-        asteroid.body.immovable = true;
+      let asteroid = this.asteroids.getFirstDead();
+
+      if (!asteroid) {
+        asteroid = new Asteroid(this, 800, initY + randomStep, 'asteroid1');
+        this.asteroids.add(asteroid);
       }
+      asteroid.setVelocityX(-randomSpeed);
+      asteroid.reset(800, initY + randomStep);
+      asteroid.setScale(randomScale);
+      asteroid.body.immovable = true;
     }
   }
 
   angelSpawn() {
-    if (!this.nextLevel) {
+    for (let i = 0; i < this.angelLimit; i++) {
       let angel = this.angels.getFirstDead();
-
+      const randomY = Phaser.Math.Between(0, 550);
       if (!angel) {
-        angel = new Angel(this, 800, 300, 'angel').setScale(1.25);
+        angel = new Angel(this, 800, randomY, 'angel').setScale(1.25);
 
         this.angels.add(angel);
       }
-      angel.reset(800, 300);
+      angel.reset(800, randomY);
       angel.play('angel_anim');
       angel.setVelocityX(-100);
-      angel.setVelocityY(150);
+      angel.setVelocityY(0);
     }
   }
 
@@ -372,7 +379,7 @@ export default class FirstLevelFg extends Phaser.Scene {
     }
   }
 
-  destroyAsteroid(laser, asteroid) {
+  handleHitAsteroid(laser, asteroid) {
     this.killEntity(this.projectiles, laser);
     this.killEntity(this.asteroids, asteroid);
     this.asteroidDestroy.play();
@@ -383,9 +390,22 @@ export default class FirstLevelFg extends Phaser.Scene {
     this.updateScore(asteroid);
   }
 
-  destroyAngel(laser, angel) {
+  handleHitAngel(laser, angel) {
     this.killEntity(this.projectiles, laser);
-    this.killEntity(this.angels, angel);
+    if (!angel.recovering) {
+      let damage = 1;
+      if (this.weaponType === 'blast') {
+        damage = 2;
+      }
+      angel.takeDamage(damage);
+      if (angel.health < 0) {
+        this.destroyAngel(this.angels, angel);
+      }
+    }
+  }
+
+  destroyAngel(angels, angel) {
+    this.killEntity(angels, angel);
     this.angelDestroy.play();
     this.createExplosion(angel.x - 10, angel.y, 'angel_explosion').play(
       'angel_explode'
@@ -423,19 +443,12 @@ export default class FirstLevelFg extends Phaser.Scene {
   // ------------------ HOUSEKEEPING --------------------------
 
   checkScore() {
-    if (this.score && !(this.score % 250)) {
-      this.spawnNumber++;
-      this.asteroidSpeed += 50;
-      this.maxDelay -= 500;
-    }
-    if (this.score === 500) {
+    if (this.score === 200) {
       this.releasePowerup('powerup1');
     } else if (!(this.score % 500)) {
       this.releasePowerup('shield');
     } else if (this.score === 1500) {
       this.releasePowerup('powerup2');
-    } else if (this.score > 1000 && !(this.score % 200)) {
-      this.angelSpawn();
     }
   }
 

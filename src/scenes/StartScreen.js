@@ -5,6 +5,12 @@ export default class StartScreen extends Phaser.Scene {
     super('startScreen');
   }
 
+  init() {
+    this.showingInstructions = false;
+    this.drawInstructions = this.drawInstructions.bind(this);
+    this.handleEnter = this.handleEnter.bind(this);
+  }
+
   preload() {
     this.loadAssets();
   }
@@ -35,13 +41,11 @@ export default class StartScreen extends Phaser.Scene {
       fontSize: '30px',
       fontFamily: "'Press Start 2P', 'cursive'",
     });
+
     const scene = this.scene;
-    this.input.keyboard.on('keydown-ENTER', function () {
-      cameras.main.fadeOut(2000, 0, 0, 0);
-      cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
-        music.stop();
-        scene.start('firstLevel');
-      });
+    const nextScene = 'firstLevel';
+    this.input.keyboard.on('keydown-ENTER', () => {
+      this.handleEnter(scene, nextScene, cameras, music);
     });
   }
 
@@ -281,5 +285,38 @@ export default class StartScreen extends Phaser.Scene {
       frameRate: 12,
       repeat: -1,
     });
+  }
+
+  drawInstructions() {
+    this.add.text(120, 100, 'controls', {
+      fontSize: '34px',
+      fontFamily: "'Press Start 2P', 'cursive'",
+    });
+    this.add.text(120, 220, 'arrows to move', {
+      fontSize: '30px',
+      fontFamily: "'Press Start 2P', 'cursive'",
+    });
+    this.add.text(120, 280, 'space to shoot', {
+      fontSize: '30px',
+      fontFamily: "'Press Start 2P', 'cursive'",
+    });
+    this.add.text(120, 430, 'enter to start', {
+      fontSize: '30px',
+      fontFamily: "'Press Start 2P', 'cursive'",
+    });
+  }
+
+  handleEnter(scene, nextScene, cameras, music) {
+    if (this.showingInstructions) {
+      cameras.main.fadeOut(2000, 0, 0, 0);
+      cameras.main.once(Phaser.Cameras.Scene2D.Events.FADE_OUT_COMPLETE, () => {
+        music.stop();
+        scene.start(nextScene);
+      });
+    } else {
+      this.add.rectangle(400, 300, 800, 600, 0);
+      this.drawInstructions();
+      this.showingInstructions = true;
+    }
   }
 }
